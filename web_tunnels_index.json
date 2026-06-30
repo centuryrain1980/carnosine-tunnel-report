@@ -1,0 +1,260 @@
+{
+  "generated": "2026-06-30",
+  "proteins": {
+    "fold_01": {
+      "n_clusters": 2,
+      "n_spheres": 42,
+      "data_file": "web_tunnels/fold_01_tunnels.json"
+    },
+    "fold_02": {
+      "n_clusters": 17,
+      "n_spheres": 1041,
+      "data_file": "web_tunnels/fold_02_tunnels.json"
+    },
+    "fold_03": {
+      "n_clusters": 18,
+      "n_spheres": 768,
+      "data_file": "web_tunnels/fold_03_tunnels.json"
+    },
+    "fold_04": {
+      "n_clusters": 8,
+      "n_spheres": 357,
+      "data_file": "web_tunnels/fold_04_tunnels.json"
+    },
+    "fold_05": {
+      "n_clusters": 18,
+      "n_spheres": 767,
+      "data_file": "web_tunnels/fold_05_tunnels.json"
+    },
+    "fold_06": {
+      "n_clusters": 7,
+      "n_spheres": 171,
+      "data_file": "web_tunnels/fold_06_tunnels.json"
+    },
+    "fold_07": {
+      "n_clusters": 7,
+      "n_spheres": 241,
+      "data_file": "web_tunnels/fold_07_tunnels.json"
+    },
+    "fold_08": {
+      "n_clusters": 2,
+      "n_spheres": 24,
+      "data_file": "web_tunnels/fold_08_tunnels.json"
+    },
+    "fold_09": {
+      "n_clusters": 16,
+      "n_spheres": 1053,
+      "data_file": "web_tunnels/fold_09_tunnels.json"
+    },
+    "fold_10": {
+      "n_clusters": 26,
+      "n_spheres": 1221,
+      "data_file": "web_tunnels/fold_10_tunnels.json"
+    },
+    "fold_11": {
+      "n_clusters": 22,
+      "n_spheres": 1846,
+      "data_file": "web_tunnels/fold_11_tunnels.json"
+    },
+    "fold_12": {
+      "n_clusters": 3,
+      "n_spheres": 38,
+      "data_file": "web_tunnels/fold_12_tunnels.json"
+    },
+    "fold_13": {
+      "n_clusters": 9,
+      "n_spheres": 230,
+      "data_file": "web_tunnels/fold_13_tunnels.json"
+    },
+    "fold_14": {
+      "n_clusters": 3,
+      "n_spheres": 52,
+      "data_file": "web_tunnels/fold_14_tunnels.json"
+    },
+    "fold_15": {
+      "n_clusters": 17,
+      "n_spheres": 842,
+      "data_file": "web_tunnels/fold_15_tunnels.json"
+    },
+    "fold_16": {
+      "n_clusters": 6,
+      "n_spheres": 183,
+      "data_file": "web_tunnels/fold_16_tunnels.json"
+    },
+    "fold_17": {
+      "n_clusters": 16,
+      "n_spheres": 861,
+      "data_file": "web_tunnels/fold_17_tunnels.json"
+    },
+    "fold_18": {
+      "n_clusters": 14,
+      "n_spheres": 972,
+      "data_file": "web_tunnels/fold_18_tunnels.json"
+    },
+    "fold_19": {
+      "n_clusters": 20,
+      "n_spheres": 1091,
+      "data_file": "web_tunnels/fold_19_tunnels.json"
+    },
+    "fold_20": {
+      "n_clusters": 1,
+      "n_spheres": 12,
+      "data_file": "web_tunnels/fold_20_tunnels.json"
+    },
+    "fold_21": {
+      "n_clusters": 4,
+      "n_spheres": 61,
+      "data_file": "web_tunnels/fold_21_tunnels.json"
+    },
+    "fold_22": {
+      "n_clusters": 8,
+      "n_spheres": 248,
+      "data_file": "web_tunnels/fold_22_tunnels.json"
+    },
+    "fold_23": {
+      "n_clusters": 2,
+      "n_spheres": 24,
+      "data_file": "web_tunnels/fold_23_tunnels.json"
+    },
+    "fold_24": {
+      "n_clusters": 1,
+      "n_spheres": 11,
+      "data_file": "web_tunnels/fold_24_tunnels.json"
+    },
+    "fold_25": {
+      "n_clusters": 8,
+      "n_spheres": 296,
+      "data_file": "web_tunnels/fold_25_tunnels.json"
+    },
+    "fold_26": {
+      "n_clusters": 13,
+      "n_spheres": 542,
+      "data_file": "web_tunnels/fold_26_tunnels.json"
+    },
+    "fold_27": {
+      "n_clusters": 2,
+      "n_spheres": 30,
+      "data_file": "web_tunnels/fold_27_tunnels.json"
+    },
+    "fold_28": {
+      "n_clusters": 24,
+      "n_spheres": 1607,
+      "data_file": "web_tunnels/fold_28_tunnels.json"
+    },
+    "fold_29": {
+      "n_clusters": 10,
+      "n_spheres": 416,
+      "data_file": "web_tunnels/fold_29_tunnels.json"
+    },
+    "fold_30": {
+      "n_clusters": 23,
+      "n_spheres": 1377,
+      "data_file": "web_tunnels/fold_30_tunnels.json"
+    },
+    "fold_31": {
+      "n_clusters": 11,
+      "n_spheres": 409,
+      "data_file": "web_tunnels/fold_31_tunnels.json"
+    },
+    "fold_32": {
+      "n_clusters": 19,
+      "n_spheres": 1044,
+      "data_file": "web_tunnels/fold_32_tunnels.json"
+    },
+    "fold_33": {
+      "n_clusters": 15,
+      "n_spheres": 675,
+      "data_file": "web_tunnels/fold_33_tunnels.json"
+    },
+    "fold_34": {
+      "n_clusters": 2,
+      "n_spheres": 41,
+      "data_file": "web_tunnels/fold_34_tunnels.json"
+    },
+    "fold_35": {
+      "n_clusters": 6,
+      "n_spheres": 112,
+      "data_file": "web_tunnels/fold_35_tunnels.json"
+    },
+    "fold_36": {
+      "n_clusters": 12,
+      "n_spheres": 409,
+      "data_file": "web_tunnels/fold_36_tunnels.json"
+    },
+    "fold_37": {
+      "n_clusters": 8,
+      "n_spheres": 238,
+      "data_file": "web_tunnels/fold_37_tunnels.json"
+    },
+    "fold_38": {
+      "n_clusters": 12,
+      "n_spheres": 902,
+      "data_file": "web_tunnels/fold_38_tunnels.json"
+    },
+    "fold_39": {
+      "n_clusters": 5,
+      "n_spheres": 88,
+      "data_file": "web_tunnels/fold_39_tunnels.json"
+    },
+    "fold_40": {
+      "n_clusters": 17,
+      "n_spheres": 764,
+      "data_file": "web_tunnels/fold_40_tunnels.json"
+    },
+    "fold_41": {
+      "n_clusters": 9,
+      "n_spheres": 319,
+      "data_file": "web_tunnels/fold_41_tunnels.json"
+    },
+    "fold_42": {
+      "n_clusters": 20,
+      "n_spheres": 903,
+      "data_file": "web_tunnels/fold_42_tunnels.json"
+    },
+    "fold_43": {
+      "n_clusters": 8,
+      "n_spheres": 207,
+      "data_file": "web_tunnels/fold_43_tunnels.json"
+    },
+    "fold_44": {
+      "n_clusters": 8,
+      "n_spheres": 349,
+      "data_file": "web_tunnels/fold_44_tunnels.json"
+    },
+    "fold_45": {
+      "n_clusters": 1,
+      "n_spheres": 11,
+      "data_file": "web_tunnels/fold_45_tunnels.json"
+    },
+    "fold_46": {
+      "n_clusters": 8,
+      "n_spheres": 268,
+      "data_file": "web_tunnels/fold_46_tunnels.json"
+    },
+    "fold_47": {
+      "n_clusters": 4,
+      "n_spheres": 70,
+      "data_file": "web_tunnels/fold_47_tunnels.json"
+    },
+    "fold_48": {
+      "n_clusters": 1,
+      "n_spheres": 11,
+      "data_file": "web_tunnels/fold_48_tunnels.json"
+    },
+    "fold_49": {
+      "n_clusters": 4,
+      "n_spheres": 90,
+      "data_file": "web_tunnels/fold_49_tunnels.json"
+    },
+    "fold_50": {
+      "n_clusters": 1,
+      "n_spheres": 10,
+      "data_file": "web_tunnels/fold_50_tunnels.json"
+    },
+    "fsl_peptidase": {
+      "n_clusters": 4,
+      "n_spheres": 92,
+      "data_file": "web_tunnels/fsl_peptidase_tunnels.json"
+    }
+  }
+}
