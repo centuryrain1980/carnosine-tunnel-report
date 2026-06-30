@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>50 设计蛋白 Tunnel 3D 分析交互报告</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: #f0f2f5; margin: 0; color: #1f2937;
+  }
+  .header {
+    background: linear-gradient(135deg, #1f3a68 0%, #2c5282 100%);
+    color: white; padding: 24px 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .header h1 { margin: 0 0 4px 0; font-size: 24px; }
+  .header p { margin: 0; opacity: 0.85; font-size: 14px; }
+
+  .tabs {
+    background: white; display: flex; padding: 0 32px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 10;
+  }
+  .tab {
+    padding: 14px 20px; cursor: pointer; border-bottom: 3px solid transparent;
+    color: #555; font-weight: 500; transition: all 0.2s;
+  }
+  .tab:hover { color: #1f3a68; background: #f5f7fa; }
+  .tab.active { color: #1f3a68; border-bottom-color: #1f3a68; background: #f5f7fa; }
+
+  .content { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* === 概览 === */
+  .kpi-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi {
+    background: white; border-radius: 8px; padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    border-left: 4px solid #1f3a68;
+  }
+  .kpi .label { font-size: 12px; color: #666; margin-bottom: 6px; }
+  .kpi .value { font-size: 28px; font-weight: bold; color: #1f3a68; }
+  .kpi .unit { font-size: 13px; color: #999; }
+  .kpi.green { border-left-color: #2ca02c; }
+  .kpi.orange { border-left-color: #f59e0b; }
+  .kpi.red { border-left-color: #d62728; }
+
+  .findings { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .finding {
+    background: white; border-radius: 8px; padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .finding h3 { margin: 0 0 12px 0; color: #1f3a68; font-size: 16px;
+    border-bottom: 2px solid #1f3a68; padding-bottom: 8px; }
+  .finding ul { margin: 0; padding-left: 20px; }
+  .finding li { margin-bottom: 8px; line-height: 1.6; font-size: 14px; }
+  .finding-full { grid-column: 1 / -1; }
+
+  .table-section {
+    background: white; border-radius: 8px; padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    margin-bottom: 16px; overflow-x: auto;
+  }
+  .table-section h3 { margin: 0 0 12px 0; color: #1f3a68; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #1f3a68; color: white; padding: 8px 12px; text-align: left; }
+  td { padding: 6px 12px; border-bottom: 1px solid #e5e7eb; }
+  tr:hover td { background: #f9fafb; }
+  .top4 { background: #e6ffed !important; }
+  .star { color: #f59e0b; }
+
+  /* === 50 蛋白卡片 === */
+  .filter-bar {
+    background: white; border-radius: 8px; padding: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-bar input, .filter-bar select {
+    padding: 6px 10px; border: 1px solid #d1d5db;
+    border-radius: 4px; font-size: 13px;
+  }
+  .filter-bar input[type="text"] { flex: 1; min-width: 200px; }
+  .filter-bar label { font-size: 13px; color: #555; }
+
+  .protein-card {
+    background: white; border-radius: 8px;
+    margin-bottom: 16px; padding: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    cursor: pointer; transition: all 0.2s;
+    display: grid; grid-template-columns: 1fr 320px; gap: 12px;
+  }
+  .protein-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); transform: translateY(-1px);
+  }
+  .protein-card.reference {
+    background: linear-gradient(135deg, #fffaf0 0%, #fff5e0 100%);
+    border-left: 4px solid #f59e0b;
+  }
+  .protein-card.top4 {
+    background: linear-gradient(135deg, #f0fff4 0%, #e6ffed 100%);
+    border-left: 4px solid #2ca02c;
+  }
+  .protein-img {
+    width: 100%; height: 360px; background: #f5f5f5; border-radius: 4px;
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+  }
+  .protein-img img { width: 100%; height: 100%; object-fit: contain; }
+  .protein-info { display: flex; flex-direction: column; min-width: 0; }
+  .protein-name {
+    font-size: 16px; font-weight: bold; color: #1f3a68; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .badge {
+    display: inline-block; padding: 2px 6px; border-radius: 10px;
+    font-size: 10px; font-weight: normal; color: white; flex-shrink: 0;
+  }
+  .badge.reference { background: #f59e0b; }
+  .badge.top4 { background: #2ca02c; }
+  .metrics {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 4px; margin: 6px 0;
+  }
+  .metric {
+    background: #f8f9fb; padding: 4px 6px;
+    border-radius: 3px; text-align: center;
+  }
+  .metric .label { font-size: 10px; color: #888; }
+  .metric .value { font-size: 14px; font-weight: bold; color: #1f3a68; line-height: 1.2; }
+  .metric .unit { font-size: 9px; color: #888; }
+
+  .lining-bar {
+    display: flex; height: 14px; border-radius: 7px; overflow: hidden;
+    background: #eee; margin: 8px 0 4px 0;
+  }
+  .lining-pos { background: #1f77b4; }
+  .lining-neg { background: #d62728; }
+  .lining-pol { background: #2ca02c; }
+  .lining-hyd { background: #ff7f0e; }
+  .lining-legend { display: flex; gap: 10px; font-size: 10px; color: #666; flex-wrap: wrap; }
+  .lining-legend .item { display: flex; align-items: center; gap: 3px; }
+  .lining-legend .swatch { width: 8px; height: 8px; border-radius: 1px; }
+
+  .action-row { display: flex; gap: 6px; margin-top: 8px; }
+  .btn {
+    flex: 1; padding: 6px 10px; font-size: 11px; border: none;
+    border-radius: 4px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-view3d { background: #1f3a68; color: white; }
+  .btn-view3d:hover { background: #2c5282; }
+  .btn-pdb { background: #6b7280; color: white; }
+  .btn-pdb:hover { background: #4b5563; }
+
+  /* === 3D Viewer === */
+  .viewer-container {
+    background: white; border-radius: 8px; padding: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .viewer-toolbar {
+    display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;
+  }
+  .viewer-toolbar select, .viewer-toolbar button {
+    padding: 6px 12px; font-size: 13px; border: 1px solid #d1d5db;
+    border-radius: 4px; background: white; cursor: pointer;
+  }
+  .viewer-toolbar button.primary { background: #1f3a68; color: white; border-color: #1f3a68; }
+  .viewer-toolbar button:hover { background: #f5f7fa; }
+  .viewer-toolbar button.primary:hover { background: #2c5282; }
+  #viewer3d {
+    width: 100%; height: 600px; position: relative;
+    background: #1a202c; border-radius: 4px; overflow: hidden;
+  }
+  .viewer-info {
+    margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .info-card {
+    background: #f8f9fb; padding: 12px; border-radius: 4px;
+    border-left: 3px solid #1f3a68;
+  }
+  .info-card .l { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .info-card .v { font-size: 16px; font-weight: bold; color: #1f3a68; }
+  .legend-row { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .legend-row .item {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px; color: #555;
+  }
+  .legend-row .swatch { width: 12px; height: 12px; border-radius: 50%; }
+
+  .loading {
+    text-align: center; padding: 40px; color: #888;
+  }
+  .loading .spin {
+    display: inline-block; width: 32px; height: 32px;
+    border: 3px solid #e5e7eb; border-top-color: #1f3a68;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>50 设计蛋白 · Tunnel 3D 分析交互报告</h1>
+  <p>参照蛋白: <b>fsl_peptidase</b>(D298) · 候选 Top 4: <b>fold_36 / fold_46 / fold_26 / fold_04</b> · 工具:CAVER 3.02 + 3Dmol.js 2.4.2</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="overview">📊 概览 · 关键发现</div>
+  <div class="tab" data-tab="top4">🏆 Top 10 候选</div>
+  <div class="tab" data-tab="viewer">🔬 交互式 3D 查看</div>
+  <div class="tab" data-tab="cards">📋 50 蛋白卡片</div>
+  <div class="tab" data-tab="methods">📖 方法学</div>
+</div>
+
+<div class="content">
+
+  <!-- ============= TAB 1: 概览 ============= -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="kpi-row">
+      <div class="kpi green">
+        <div class="label">总设计蛋白</div>
+        <div class="value">50</div>
+        <div class="unit">+ 1 参照 fsl_peptidase</div>
+      </div>
+      <div class="kpi">
+        <div class="label">保留 D298 (与原酶一致)</div>
+        <div class="value">23/50</div>
+        <div class="unit">46% · 推荐候选</div>
+      </div>
+      <div class="kpi orange">
+        <div class="label">TRP298 (不推荐)</div>
+        <div class="value">18/50</div>
+        <div class="unit">36% · 副产物风险</div>
+      </div>
+      <div class="kpi red">
+        <div class="label">PHE298 (不推荐)</div>
+        <div class="value">9/50</div>
+        <div class="unit">18% · 副产物风险</div>
+      </div>
+    </div>
+
+    <div class="findings">
+      <div class="finding">
+        <h3>🎯 三个核心问题(Word 报告 §1)</h3>
+        <ul>
+          <li>50 个 AlphaFold 设计蛋白的底物通道几何特征分布如何(瓶颈半径、通道长度、cluster 数)?</li>
+          <li>哪些变体在通道几何上最接近 fsl_peptidase 原酶(瓶颈 0.82 Å、长度 8.80 Å)?</li>
+          <li>从工程改造角度,哪 10 个候选蛋白最值得推荐进入下一轮湿实验验证?</li>
+        </ul>
+      </div>
+
+      <div class="finding">
+        <h3>🔬 参照酶 fsl_peptidase 关键指标</h3>
+        <ul>
+          <li><b>Avg_BR (瓶颈半径):</b> 0.821 Å — 较窄,允许小分子精确进入</li>
+          <li><b>Avg_L (通道长度):</b> 8.796 Å — 中等,产物驻留时间适中</li>
+          <li><b>Cluster 数:</b> 4 — 多个通道,提供替代入口</li>
+          <li><b>残基 298 类型:</b> ASP — 带负电,引导产物离开</li>
+        </ul>
+      </div>
+
+      <div class="finding">
+        <h3>✅ 7.1 关键结论</h3>
+        <ul>
+          <li>23/50 个设计保留了 <b>D298</b>,与 fsl 原酶一致,具备催化功能保守性</li>
+          <li><b>Top 4 候选</b>(fold_36/46/26/04)综合评分 8.00,并列第一;它们在 BR/L/N 三个维度上达到了最佳平衡</li>
+          <li>TRP298/PHE298(27 个)即使通道几何接近原酶,也不推荐 —— 298 位类型偏离会改变产物引导方向,引发副反应</li>
+          <li>50 个设计的瓶颈半径普遍宽于 fsl 原酶(40-75%),这是 AlphaFold 预测 vs X-ray 晶体的固有差异</li>
+        </ul>
+      </div>
+
+      <div class="finding">
+        <h3>🧪 7.2 推荐湿实验方案</h3>
+        <ul>
+          <li><b>第一轮(优先):</b>对 fold_36 + fold_46 + fold_26 + fold_04 共 4 个 Top 候选同时进行体外表达纯化 + 酶活测定 + HPLC 检测</li>
+          <li><b>第二轮(扩展):</b>若第一轮结果与预测吻合,扩展测试 fold_38/16/06/18 共 4 个次优候选</li>
+          <li><b>对照实验:</b>测试 1-2 个 TRP298 设计(如 fold_02,通道长度最接近 fsl),验证 298 位类型对选择性的影响</li>
+        </ul>
+      </div>
+
+      <div class="finding finding-full">
+        <h3>📈 298 位残基类型分组统计</h3>
+        <table>
+          <thead><tr><th>298 类型</th><th>数量</th><th>BR 范围 (Å)</th><th>L 范围 (Å)</th><th>N_Cl 范围</th><th>Priority 范围</th></tr></thead>
+          <tbody id="resi298-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============= TAB 2: Top 10 ============= -->
+  <div class="tab-content" id="tab-top4">
+    <div class="table-section">
+      <h3>🏆 Top 10 综合评分候选(全部为 D298,与原酶一致)</h3>
+      <table>
+        <thead><tr><th>排名</th><th>Fold</th><th>BR (Å)</th><th>L (Å)</th><th>Cluster</th><th>Priority</th><th>评分</th><th>推荐等级</th></tr></thead>
+        <tbody id="top10-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="findings">
+      <div class="finding">
+        <h3>🥇 顶级(评分 8.00):fold_36 / fold_46 / fold_26 / fold_04</h3>
+        <p style="font-size:13px;color:#444;line-height:1.7">
+          这 4 个候选得分并列第一,通道几何在 BR 和 L 上均处于合理范围。
+        </p>
+        <h3 style="margin-top:16px">推荐首选:fold_36</h3>
+        <ul>
+          <li><b>BR = 1.254 Å</b> 在理想范围(1.0-1.4 Å),允许 β-丙氨酸甲酯(横截面 ~5 Å)进入,但不会过于松散导致底物特异性下降</li>
+          <li><b>L = 5.553 Å</b> 略短于 fsl 的 8.80 Å,但仍在可接受范围(> 4 Å),保证产物有一定驻留时间进行反应</li>
+          <li><b>12 个 cluster</b> 提供多入口,适合底物从多个方向进入</li>
+          <li><b>298 位保留 ASP</b>,与原酶催化机制一致</li>
+        </ul>
+      </div>
+
+      <div class="finding">
+        <h3>🥈 备选(评分并列):fold_46 / fold_26 / fold_04</h3>
+        <p style="font-size:13px;color:#444;line-height:1.7">
+          这 3 个候选评分与 fold_36 相同(8.00),通道几何略短(4.85-4.91 Å)但 cluster 数适中(8-13)。
+          推荐与 fold_36 同时进入湿实验验证,通过对比验证哪条几何路径实际表现更优。
+        </p>
+        <h3 style="margin-top:16px">次优(评分 7.50):fold_38 / fold_16 / fold_06 / fold_18</h3>
+        <p style="font-size:13px;color:#444;line-height:1.7">
+          通道略短或略宽,但仍保持合理的底物进出能力,可作为第二轮扩展候选。
+        </p>
+        <h3 style="margin-top:16px">第三档(评分 7.00):fold_20 / fold_34</h3>
+        <p style="font-size:13px;color:#444;line-height:1.7">
+          单一主导通道(仅 1-2 个 cluster),适合研究单通道动力学,作为机理研究对照。
+        </p>
+      </div>
+
+      <div class="finding finding-full">
+        <h3>⚠️ 局限性说明(7.3)</h3>
+        <p style="font-size:13px;color:#444;line-height:1.7">
+          本报告基于 AlphaFold 预测结构,实际蛋白折叠可能与预测有偏差。
+          通道分析是结构筛选,不能替代湿实验验证;Top 10 候选应当通过实际酶活测定确认。
+          此外,本报告未考虑底物结合亲和力(Kd)、催化速率(kcat)等动力学参数,
+          建议在湿实验阶段同步测定 Km 和 kcat 以获得完整的酶学表征。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============= TAB 3: 3D Viewer ============= -->
+  <div class="tab-content" id="tab-viewer">
+    <div class="viewer-container">
+      <div class="viewer-toolbar">
+        <label>蛋白:&nbsp;
+          <select id="viewer-protein">
+            <option value="fsl_peptidase">fsl_peptidase (参照)</option>
+            <option value="fold_36" selected>fold_36 (Top 1)</option>
+            <option value="fold_46">fold_46 (Top 2)</option>
+            <option value="fold_26">fold_26 (Top 3)</option>
+            <option value="fold_04">fold_04 (Top 4)</option>
+            <option value="fold_38">fold_38 (次优)</option>
+            <option value="fold_16">fold_16 (次优)</option>
+          </select>
+        </label>
+        <label>显示:
+          <label><input type="checkbox" id="opt-cartoon" checked> 蛋白卡通</label>
+          <label><input type="checkbox" id="opt-surface"> 分子表面</label>
+          <label><input type="checkbox" id="opt-sites" checked> 8 活性位点</label>
+          <label><input type="checkbox" id="opt-tunnels" checked> Tunnel 球链</label>
+          <label><input type="checkbox" id="opt-spin"> 自动旋转</label>
+        </label>
+        <button class="primary" id="btn-load">加载</button>
+        <button id="btn-reset">重置视角</button>
+      </div>
+
+      <div id="viewer3d">
+        <div class="loading" id="viewer-loading" style="display:none">
+          <div class="spin"></div>
+          <div>加载中…</div>
+        </div>
+      </div>
+
+      <div class="legend-row">
+        <div class="item"><span class="swatch" style="background:#d62728"></span>负电 ASP/GLU</div>
+        <div class="item"><span class="swatch" style="background:#1f77b4"></span>正电 ARG/LYS/HIS</div>
+        <div class="item"><span class="swatch" style="background:#2ca02c"></span>极性 SER/THR/ASN/GLN/TYR/CYS</div>
+        <div class="item"><span class="swatch" style="background:#ff7f0e"></span>疏水 ALA/VAL/LEU/ILE/PHE/TRP/MET/GLY/PRO</div>
+        <div class="item"><span class="swatch" style="background:#9b59b6"></span>Tunnel 球链</div>
+      </div>
+
+      <div class="viewer-info">
+        <div class="info-card">
+          <div class="l">蛋白</div>
+          <div class="v" id="info-name">—</div>
+        </div>
+        <div class="info-card">
+          <div class="l">Tunnel Cluster 数</div>
+          <div class="v" id="info-clusters">—</div>
+        </div>
+        <div class="info-card">
+          <div class="l">总球数</div>
+          <div class="v" id="info-spheres">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============= TAB 4: 50 Cards ============= -->
+  <div class="tab-content" id="tab-cards">
+    <div class="filter-bar">
+      <input type="text" id="search" placeholder="搜索蛋白名(如 fold_36 或 fsl_peptidase)...">
+      <label>类型:
+        <select id="filter-type">
+          <option value="all">全部</option>
+          <option value="reference">参照蛋白</option>
+          <option value="design">设计蛋白</option>
+          <option value="top4">Top 4 候选</option>
+        </select>
+      </label>
+      <label>体积 (Å³):
+        <input type="number" id="filter-vol-min" placeholder="最小" style="width:80px">
+        -
+        <input type="number" id="filter-vol-max" placeholder="最大" style="width:80px">
+      </label>
+      <label>排序:
+        <select id="sort-by">
+          <option value="name">按名称</option>
+          <option value="vol-desc">体积 ↓</option>
+          <option value="vol-asc">体积 ↑</option>
+          <option value="clusters-desc">通道数 ↓</option>
+        </select>
+      </label>
+    </div>
+    <div id="cards-container"></div>
+  </div>
+
+  <!-- ============= TAB 5: Methods ============= -->
+  <div class="tab-content" id="tab-methods">
+    <div class="findings">
+      <div class="finding">
+        <h3>🔬 8.1 通道计算工具</h3>
+        <p style="font-size:13px;color:#444;line-height:1.7">
+          <b>CAVER 3.02</b> 是识别和表征蛋白质内部空腔/通道的工业标准工具,
+          已被 1000+ 研究组采用。本项目通过 PyMOL 1.8 集成接口调用 CAVER。
+        </p>
+        <p style="font-size:12px;color:#666;line-height:1.6">
+          引用: Chovancova E, et al. (2012) CAVER 3.0: A Tool for the Analysis of Transport Pathways
+          in Dynamic Protein Structures. PLoS Comput Biol 8: e1002708.
+          DOI: 10.1371/journal.pcbi.1002708
+        </p>
+      </div>
+
+      <div class="finding">
+        <h3>📐 统一 CAVER 参数(所有 50 fold + fsl)</h3>
+        <ul>
+          <li><b>探针半径 probe_radius:</b>0.7 Å(小于水分子,捕获细通道)</li>
+          <li><b>起始点保护半径:</b>4.0 Å</li>
+          <li><b>壳层半径 / 壳层深度:</b>5.0 Å / 8.0</li>
+          <li><b>聚类阈值:</b>3.5 Å</li>
+          <li><b>残基接触距离:</b>3.0 Å</li>
+          <li><b>起始点:</b>每个蛋白 8 个活性中心残基 Cα 几何中心(独立计算)</li>
+        </ul>
+      </div>
+
+      <div class="finding">
+        <h3>⚙️ 8.2 批量执行流程</h3>
+        <ol style="font-size:13px;color:#444;line-height:1.8">
+          <li>50 个 CIF 文件 → 标准库 mmCIF 解析 → 转换为 PDB 格式</li>
+          <li>对每个 PDB 独立计算活性中心 Cα 几何中心作为 CAVER 起始点</li>
+          <li>生成 CAVER config.txt(统一参数)并启动 CAVER</li>
+          <li>50 个 CAVER 任务分 10 批 × 5 个并行执行,Windows Java 后端</li>
+          <li>总耗时约 30-60 分钟(并行加速)</li>
+        </ol>
+      </div>
+
+      <div class="finding">
+        <h3>🌐 8.3 数据汇总工具</h3>
+        <ul style="font-size:13px;color:#444;line-height:1.7">
+          <li><b>体积计算:</b> V = Σ (4/3)π r³,CAVER 球链结构中 r = B-factor</li>
+          <li><b>衬里化学分类:</b>
+            <ul style="margin-top:4px">
+              <li>正电: ARG / LYS / HIS(蓝)</li>
+              <li>负电: ASP / GLU(红)</li>
+              <li>极性: SER / THR / ASN / GLN / TYR / CYS(绿)</li>
+              <li>疏水: ALA / VAL / LEU / ILE / PHE / TRP / MET / GLY(橙)</li>
+            </ul>
+          </li>
+          <li><b>综合评分:</b> BR(1.0-1.4 Å)+ L(> 4 Å)+ Cluster 数(适中)+ 强制 D298,综合分 0-10</li>
+        </ul>
+      </div>
+
+      <div class="finding">
+        <h3>🖥️ 3D 渲染技术</h3>
+        <ul style="font-size:13px;color:#444;line-height:1.7">
+          <li><b>静态缩略图:</b> Python matplotlib 3D(51 张 PNG,本目录 <code>renders/</code>)</li>
+          <li><b>交互式查看:</b> 3Dmol.js 2.4.2 加载 PDB + 自定义球链 + 鼠标交互(旋转/缩放/平移)</li>
+          <li><b>化学着色:</b> 8 个活性位点 Cα 按残基类型分 4 色,Tunnel 球按 cluster 着色</li>
+        </ul>
+      </div>
+
+      <div class="finding finding-full">
+        <h3>📦 完整产物清单</h3>
+        <ul style="font-size:13px;color:#444;line-height:1.7">
+          <li><code>report.html</code>(本文件)· <code>index.json</code>(数据索引)· <code>README.md</code>(使用说明)</li>
+          <li><code>renders/</code>(51 张 matplotlib 3D PNG,12.3 MB)</li>
+          <li><code>web_pdbs/</code>(51 个 PDB 文件,3Dmol.js 可直接 fetch,11.2 MB)</li>
+          <li><code>web_tunnels/*.json</code>(51 蛋白 tunnel 球心坐标,0.6 MB)</li>
+          <li><code>web_sites.json</code>(51 蛋白 8 个活性位点 Cα 坐标 + 颜色,71 KB)</li>
+          <li><code>per_fold/fold_01..50/</code>(每蛋白 5 文件: 3 .pml + 1 csv + 1 json)</li>
+          <li><code>top4/</code>(Top 4 候选 12 个 .pml)</li>
+          <li>源报告:<code>CAVER_分析报告_50个设计与原酶对比.docx</code>(211 KB) + <code>analysis_50_overview.png</code>(196 KB)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============= DATA =============
+const ENTRIES = [{"name":"fsl_peptidase","type":"reference","n_clusters":4,"total_spheres":92,"volume":968.1,"positive_n":1,"negative_n":6,"polar_n":15,"hydrophobic_n":16,"image":"renders/fsl_peptidase_3d.png","json_data":"../fsl_peptidase_tunnel_volumes.json"},{"name":"fold_01","type":"design","n_clusters":2,"total_spheres":42,"volume":629.85,"positive_n":1,"negative_n":8,"polar_n":17,"hydrophobic_n":23,"image":"renders/fold_01_3d.png","json_data":"per_fold/fold_01/fold_01_tunnel_volumes.json"},{"name":"fold_02","type":"design","n_clusters":17,"total_spheres":1041,"volume":8616.79,"positive_n":2,"negative_n":6,"polar_n":18,"hydrophobic_n":23,"image":"renders/fold_02_3d.png","json_data":"per_fold/fold_02/fold_02_tunnel_volumes.json"},{"name":"fold_03","type":"design","n_clusters":18,"total_spheres":768,"volume":9056.85,"positive_n":0,"negative_n":6,"polar_n":13,"hydrophobic_n":16,"image":"renders/fold_03_3d.png","json_data":"per_fold/fold_03/fold_03_tunnel_volumes.json"},{"name":"fold_04","type":"design","n_clusters":8,"total_spheres":357,"volume":3437.27,"positive_n":0,"negative_n":8,"polar_n":15,"hydrophobic_n":18,"image":"renders/fold_04_3d.png","json_data":"per_fold/fold_04/fold_04_tunnel_volumes.json"},{"name":"fold_05","type":"design","n_clusters":18,"total_spheres":767,"volume":10427.12,"positive_n":2,"negative_n":8,"polar_n":15,"hydrophobic_n":11,"image":"renders/fold_05_3d.png","json_data":"per_fold/fold_05/fold_05_tunnel_volumes.json"},{"name":"fold_06","type":"design","n_clusters":7,"total_spheres":171,"volume":3541.5,"positive_n":2,"negative_n":4,"polar_n":17,"hydrophobic_n":14,"image":"renders/fold_06_3d.png","json_data":"per_fold/fold_06/fold_06_tunnel_volumes.json"},{"name":"fold_07","type":"design","n_clusters":7,"total_spheres":241,"volume":2060.64,"positive_n":2,"negative_n":6,"polar_n":14,"hydrophobic_n":12,"image":"renders/fold_07_3d.png","json_data":"per_fold/fold_07/fold_07_tunnel_volumes.json"},{"name":"fold_08","type":"design","n_clusters":2,"total_spheres":24,"volume":553.73,"positive_n":1,"negative_n":7,"polar_n":14,"hydrophobic_n":13,"image":"renders/fold_08_3d.png","json_data":"per_fold/fold_08/fold_08_tunnel_volumes.json"},{"name":"fold_09","type":"design","n_clusters":16,"total_spheres":1053,"volume":12860.86,"positive_n":2,"negative_n":6,"polar_n":14,"hydrophobic_n":12,"image":"renders/fold_09_3d.png","json_data":"per_fold/fold_09/fold_09_tunnel_volumes.json"},{"name":"fold_10","type":"design","n_clusters":26,"total_spheres":1221,"volume":13456.72,"positive_n":2,"negative_n":6,"polar_n":14,"hydrophobic_n":14,"image":"renders/fold_10_3d.png","json_data":"per_fold/fold_10/fold_10_tunnel_volumes.json"},{"name":"fold_11","type":"design","n_clusters":22,"total_spheres":1846,"volume":14313.9,"positive_n":0,"negative_n":4,"polar_n":14,"hydrophobic_n":19,"image":"renders/fold_11_3d.png","json_data":"per_fold/fold_11/fold_11_tunnel_volumes.json"},{"name":"fold_12","type":"design","n_clusters":3,"total_spheres":38,"volume":610.23,"positive_n":0,"negative_n":7,"polar_n":14,"hydrophobic_n":10,"image":"renders/fold_12_3d.png","json_data":"per_fold/fold_12/fold_12_tunnel_volumes.json"},{"name":"fold_13","type":"design","n_clusters":9,"total_spheres":230,"volume":3003.19,"positive_n":1,"negative_n":5,"polar_n":18,"hydrophobic_n":9,"image":"renders/fold_13_3d.png","json_data":"per_fold/fold_13/fold_13_tunnel_volumes.json"},{"name":"fold_14","type":"design","n_clusters":3,"total_spheres":52,"volume":1122.77,"positive_n":2,"negative_n":6,"polar_n":14,"hydrophobic_n":14,"image":"renders/fold_14_3d.png","json_data":"per_fold/fold_14/fold_14_tunnel_volumes.json"},{"name":"fold_15","type":"design","n_clusters":17,"total_spheres":842,"volume":9246.91,"positive_n":3,"negative_n":8,"polar_n":15,"hydrophobic_n":14,"image":"renders/fold_15_3d.png","json_data":"per_fold/fold_15/fold_15_tunnel_volumes.json"},{"name":"fold_16","type":"design","n_clusters":6,"total_spheres":183,"volume":2616.76,"positive_n":0,"negative_n":7,"polar_n":14,"hydrophobic_n":12,"image":"renders/fold_16_3d.png","json_data":"per_fold/fold_16/fold_16_tunnel_volumes.json"},{"name":"fold_17","type":"design","n_clusters":16,"total_spheres":861,"volume":10069.44,"positive_n":1,"negative_n":7,"polar_n":14,"hydrophobic_n":11,"image":"renders/fold_17_3d.png","json_data":"per_fold/fold_17/fold_17_tunnel_volumes.json"},{"name":"fold_18","type":"design","n_clusters":14,"total_spheres":972,"volume":8648.54,"positive_n":0,"negative_n":6,"polar_n":16,"hydrophobic_n":21,"image":"renders/fold_18_3d.png","json_data":"per_fold/fold_18/fold_18_tunnel_volumes.json"},{"name":"fold_19","type":"design","n_clusters":20,"total_spheres":1091,"volume":8415.91,"positive_n":2,"negative_n":6,"polar_n":14,"hydrophobic_n":15,"image":"renders/fold_19_3d.png","json_data":"per_fold/fold_19/fold_19_tunnel_volumes.json"},{"name":"fold_20","type":"design","n_clusters":1,"total_spheres":12,"volume":398.02,"positive_n":0,"negative_n":3,"polar_n":7,"hydrophobic_n":8,"image":"renders/fold_20_3d.png","json_data":"per_fold/fold_20/fold_20_tunnel_volumes.json"},{"name":"fold_21","type":"design","n_clusters":4,"total_spheres":61,"volume":1101.16,"positive_n":2,"negative_n":8,"polar_n":16,"hydrophobic_n":18,"image":"renders/fold_21_3d.png","json_data":"per_fold/fold_21/fold_21_tunnel_volumes.json"},{"name":"fold_22","type":"design","n_clusters":8,"total_spheres":248,"volume":2214.43,"positive_n":1,"negative_n":8,"polar_n":16,"hydrophobic_n":14,"image":"renders/fold_22_3d.png","json_data":"per_fold/fold_22/fold_22_tunnel_volumes.json"},{"name":"fold_23","type":"design","n_clusters":2,"total_spheres":24,"volume":502.02,"positive_n":0,"negative_n":6,"polar_n":13,"hydrophobic_n":19,"image":"renders/fold_23_3d.png","json_data":"per_fold/fold_23/fold_23_tunnel_volumes.json"},{"name":"fold_24","type":"design","n_clusters":1,"total_spheres":11,"volume":341.08,"positive_n":0,"negative_n":3,"polar_n":7,"hydrophobic_n":6,"image":"renders/fold_24_3d.png","json_data":"per_fold/fold_24/fold_24_tunnel_volumes.json"},{"name":"fold_25","type":"design","n_clusters":8,"total_spheres":296,"volume":3272.52,"positive_n":1,"negative_n":7,"polar_n":15,"hydrophobic_n":19,"image":"renders/fold_25_3d.png","json_data":"per_fold/fold_25/fold_25_tunnel_volumes.json"},{"name":"fold_26","type":"design","n_clusters":13,"total_spheres":542,"volume":9909.94,"positive_n":2,"negative_n":4,"polar_n":19,"hydrophobic_n":16,"image":"renders/fold_26_3d.png","json_data":"per_fold/fold_26/fold_26_tunnel_volumes.json"},{"name":"fold_27","type":"design","n_clusters":2,"total_spheres":30,"volume":454.98,"positive_n":0,"negative_n":7,"polar_n":14,"hydrophobic_n":15,"image":"renders/fold_27_3d.png","json_data":"per_fold/fold_27/fold_27_tunnel_volumes.json"},{"name":"fold_28","type":"design","n_clusters":24,"total_spheres":1607,"volume":14550.92,"positive_n":2,"negative_n":8,"polar_n":15,"hydrophobic_n":17,"image":"renders/fold_28_3d.png","json_data":"per_fold/fold_28/fold_28_tunnel_volumes.json"},{"name":"fold_29","type":"design","n_clusters":10,"total_spheres":416,"volume":4077.06,"positive_n":2,"negative_n":8,"polar_n":15,"hydrophobic_n":20,"image":"renders/fold_29_3d.png","json_data":"per_fold/fold_29/fold_29_tunnel_volumes.json"},{"name":"fold_30","type":"design","n_clusters":23,"total_spheres":1377,"volume":14449.71,"positive_n":2,"negative_n":6,"polar_n":14,"hydrophobic_n":13,"image":"renders/fold_30_3d.png","json_data":"per_fold/fold_30/fold_30_tunnel_volumes.json"},{"name":"fold_31","type":"design","n_clusters":11,"total_spheres":409,"volume":5035.94,"positive_n":2,"negative_n":7,"polar_n":14,"hydrophobic_n":13,"image":"renders/fold_31_3d.png","json_data":"per_fold/fold_31/fold_31_tunnel_volumes.json"},{"name":"fold_32","type":"design","n_clusters":19,"total_spheres":1044,"volume":12570.59,"positive_n":2,"negative_n":7,"polar_n":14,"hydrophobic_n":12,"image":"renders/fold_32_3d.png","json_data":"per_fold/fold_32/fold_32_tunnel_volumes.json"},{"name":"fold_33","type":"design","n_clusters":15,"total_spheres":675,"volume":8969.86,"positive_n":0,"negative_n":6,"polar_n":12,"hydrophobic_n":13,"image":"renders/fold_33_3d.png","json_data":"per_fold/fold_33/fold_33_tunnel_volumes.json"},{"name":"fold_34","type":"design","n_clusters":2,"total_spheres":41,"volume":597.46,"positive_n":0,"negative_n":7,"polar_n":15,"hydrophobic_n":19,"image":"renders/fold_34_3d.png","json_data":"per_fold/fold_34/fold_34_tunnel_volumes.json"},{"name":"fold_35","type":"design","n_clusters":6,"total_spheres":112,"volume":2780.69,"positive_n":2,"negative_n":8,"polar_n":17,"hydrophobic_n":16,"image":"renders/fold_35_3d.png","json_data":"per_fold/fold_35/fold_35_tunnel_volumes.json"},{"name":"fold_36","type":"design","n_clusters":12,"total_spheres":409,"volume":5767.24,"positive_n":2,"negative_n":4,"polar_n":19,"hydrophobic_n":14,"image":"renders/fold_36_3d.png","json_data":"per_fold/fold_36/fold_36_tunnel_volumes.json"},{"name":"fold_37","type":"design","n_clusters":8,"total_spheres":238,"volume":4788.23,"positive_n":2,"negative_n":7,"polar_n":14,"hydrophobic_n":13,"image":"renders/fold_37_3d.png","json_data":"per_fold/fold_37/fold_37_tunnel_volumes.json"},{"name":"fold_38","type":"design","n_clusters":12,"total_spheres":902,"volume":7948.95,"positive_n":1,"negative_n":8,"polar_n":14,"hydrophobic_n":12,"image":"renders/fold_38_3d.png","json_data":"per_fold/fold_38/fold_38_tunnel_volumes.json"},{"name":"fold_39","type":"design","n_clusters":5,"total_spheres":88,"volume":1689.04,"positive_n":2,"negative_n":8,"polar_n":18,"hydrophobic_n":21,"image":"renders/fold_39_3d.png","json_data":"per_fold/fold_39/fold_39_tunnel_volumes.json"},{"name":"fold_40","type":"design","n_clusters":17,"total_spheres":764,"volume":7593.48,"positive_n":2,"negative_n":7,"polar_n":13,"hydrophobic_n":14,"image":"renders/fold_40_3d.png","json_data":"per_fold/fold_40/fold_40_tunnel_volumes.json"},{"name":"fold_41","type":"design","n_clusters":9,"total_spheres":319,"volume":3208.63,"positive_n":0,"negative_n":8,"polar_n":18,"hydrophobic_n":18,"image":"renders/fold_41_3d.png","json_data":"per_fold/fold_41/fold_41_tunnel_volumes.json"},{"name":"fold_42","type":"design","n_clusters":20,"total_spheres":903,"volume":8943.04,"positive_n":0,"negative_n":6,"polar_n":14,"hydrophobic_n":12,"image":"renders/fold_42_3d.png","json_data":"per_fold/fold_42/fold_42_tunnel_volumes.json"},{"name":"fold_43","type":"design","n_clusters":8,"total_spheres":207,"volume":3116.34,"positive_n":2,"negative_n":4,"polar_n":20,"hydrophobic_n":14,"image":"renders/fold_43_3d.png","json_data":"per_fold/fold_43/fold_43_tunnel_volumes.json"},{"name":"fold_44","type":"design","n_clusters":8,"total_spheres":349,"volume":5109.93,"positive_n":3,"negative_n":8,"polar_n":16,"hydrophobic_n":18,"image":"renders/fold_44_3d.png","json_data":"per_fold/fold_44/fold_44_tunnel_volumes.json"},{"name":"fold_45","type":"design","n_clusters":1,"total_spheres":11,"volume":365.8,"positive_n":0,"negative_n":3,"polar_n":7,"hydrophobic_n":6,"image":"renders/fold_45_3d.png","json_data":"per_fold/fold_45/fold_45_tunnel_volumes.json"},{"name":"fold_46","type":"design","n_clusters":8,"total_spheres":268,"volume":3868.29,"positive_n":0,"negative_n":6,"polar_n":14,"hydrophobic_n":14,"image":"renders/fold_46_3d.png","json_data":"per_fold/fold_46/fold_46_tunnel_volumes.json"},{"name":"fold_47","type":"design","n_clusters":4,"total_spheres":70,"volume":1100.26,"positive_n":2,"negative_n":6,"polar_n":14,"hydrophobic_n":12,"image":"renders/fold_47_3d.png","json_data":"per_fold/fold_47/fold_47_tunnel_volumes.json"},{"name":"fold_48","type":"design","n_clusters":1,"total_spheres":11,"volume":289.49,"positive_n":0,"negative_n":3,"polar_n":7,"hydrophobic_n":7,"image":"renders/fold_48_3d.png","json_data":"per_fold/fold_48/fold_48_tunnel_volumes.json"},{"name":"fold_49","type":"design","n_clusters":4,"total_spheres":90,"volume":1869.17,"positive_n":2,"negative_n":6,"polar_n":14,"hydrophobic_n":12,"image":"renders/fold_49_3d.png","json_data":"per_fold/fold_49/fold_49_tunnel_volumes.json"},{"name":"fold_50","type":"design","n_clusters":1,"total_spheres":10,"volume":267.58,"positive_n":0,"negative_n":3,"polar_n":7,"hydrophobic_n":7,"image":"renders/fold_50_3d.png","json_data":"per_fold/fold_50/fold_50_tunnel_volumes.json"}];
+const SITES = {"fold_01":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-10.278,"y":-4.851,"z":-5.724},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-12.575,"y":-11.161,"z":-5.976},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-4.383,"y":-7.643,"z":-0.609},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-5.696,"y":-13.594,"z":-3.547},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-6.259,"y":-14.99,"z":-8.835},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-5.536,"y":-11.301,"z":-8.11},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-5.603,"y":-12.325,"z":-12.707},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-2.006,"y":-7.669,"z":-10.712}],"fold_02":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-1.284,"y":0.583,"z":10.125},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-7.259,"y":0.628,"z":13.091},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-5.274,"y":-1.097,"z":2.95},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-10.542,"y":1.752,"z":6.283},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-10.895,"y":6.351,"z":9.04},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-7.419,"y":5.587,"z":7.65},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-7.881,"y":9.801,"z":9.513},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-3.68,"y":8.88,"z":5.026}],"fold_03":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-2.652,"y":-4.051,"z":-10.827},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-0.665,"y":-1.258,"z":-16.637},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":1.005,"y":2.511,"z":-7.015},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":0.115,"y":5.443,"z":-13.106},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-3.491,"y":5.08,"z":-16.351},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-4.616,"y":3.697,"z":-12.992},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-8.309,"y":4.675,"z":-15.313},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-8.826,"y":3.867,"z":-9.405}],"fold_04":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":0.846,"y":-8.914,"z":7.12},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":6.076,"y":-12.764,"z":5.408},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":2.888,"y":-4.032,"z":0.848},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":5.9,"y":-9.612,"z":-1.5},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":4.789,"y":-14.526,"z":-0.859},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":1.821,"y":-12.201,"z":-0.312},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":0.282,"y":-16.035,"z":-1.329},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-3.523,"y":-11.632,"z":-1.4}],"fold_05":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":3.741,"y":-10.344,"z":-0.82},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":8.168,"y":-12.136,"z":3.899},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":2.89,"y":-3.178,"z":3.222},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":9.059,"y":-4.794,"z":5.692},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":13.375,"y":-6.785,"z":3.144},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":10.428,"y":-5.938,"z":0.866},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":14.393,"y":-6.759,"z":-1.64},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":10.076,"y":-3.334,"z":-4.16}],"fold_06":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":1.598,"y":-9.764,"z":4.116},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-0.637,"y":-15.654,"z":1.773},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-1.571,"y":-6.054,"z":-2.559},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-5.322,"y":-11.647,"z":-2.848},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-7.861,"y":-14.451,"z":0.942},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-6.216,"y":-11.226,"z":2.238},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-9.27,"y":-12.698,"z":5.374},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-7.806,"y":-7.085,"z":5.49}],"fold_07":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":0.169,"y":-10.467,"z":-4.69},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":3.137,"y":-11.574,"z":-10.607},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":2.956,"y":-2.76,"z":-5.085},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":3.16,"y":-4.066,"z":-11.787},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":0.143,"y":-6.848,"z":-14.778},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.467,"y":-6.046,"z":-11.393},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-4.675,"y":-7.0,"z":-14.406},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-6.529,"y":-4.094,"z":-9.135}],"fold_08":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":4.021,"y":3.166,"z":8.923},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":0.395,"y":8.076,"z":11.761},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-1.122,"y":3.425,"z":2.609},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-2.344,"y":9.738,"z":4.83},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":0.863,"y":13.295,"z":6.761},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":2.668,"y":10.305,"z":5.172},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":5.325,"y":13.732,"z":5.552},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":6.874,"y":9.637,"z":1.818}],"fold_09":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":7.302,"y":4.463,"z":-6.128},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":12.144,"y":0.495,"z":-8.622},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":4.303,"y":-2.327,"z":-2.334},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":10.636,"y":-4.506,"z":-3.123},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":15.279,"y":-2.01,"z":-2.388},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":12.233,"y":0.054,"z":-1.379},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":16.379,"y":1.9,"z":0.073},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":11.037,"y":3.297,"z":3.021}],"fold_10":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":2.244,"y":7.882,"z":10.62},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":6.803,"y":5.773,"z":15.089},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":4.8,"y":1.628,"z":5.709},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":6.91,"y":-0.986,"z":11.596},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":4.983,"y":-0.597,"z":16.338},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":2.419,"y":0.298,"z":13.621},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":0.045,"y":-0.75,"z":17.186},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-2.792,"y":-0.477,"z":12.158}],"fold_11":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":7.084,"y":-4.606,"z":-5.538},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":12.703,"y":-6.925,"z":-2.742},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":4.972,"y":-1.711,"z":1.894},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":11.644,"y":-2.064,"z":3.091},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":15.748,"y":-0.821,"z":0.145},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":12.443,"y":0.08,"z":-1.548},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":15.935,"y":2.029,"z":-3.579},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":10.308,"y":4.812,"z":-4.114}],"fold_12":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":0.007,"y":7.014,"z":7.142},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":0.912,"y":12.965,"z":4.121},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":0.17,"y":3.635,"z":-0.444},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":3.542,"y":9.363,"z":-2.047},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":6.886,"y":12.046,"z":0.633},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":6.268,"y":8.635,"z":2.237},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":10.115,"y":10.295,"z":3.701},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":9.145,"y":4.194,"z":4.533}],"fold_13":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":10.696,"y":-0.005,"z":-3.195},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":13.468,"y":5.735,"z":-5.248},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":3.76,"y":4.14,"z":-1.526},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":6.366,"y":8.592,"z":-5.774},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":9.125,"y":8.089,"z":-10.093},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":7.459,"y":4.822,"z":-8.964},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":8.396,"y":4.69,"z":-13.252},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":4.381,"y":0.344,"z":-11.139}],"fold_14":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":6.066,"y":6.029,"z":-4.814},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":11.914,"y":8.351,"z":-2.415},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":5.606,"y":1.289,"z":1.998},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":9.829,"y":5.854,"z":4.58},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":10.368,"y":10.858,"z":3.981},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":7.001,"y":9.478,"z":2.695},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":6.602,"y":13.828,"z":3.382},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":1.243,"y":10.635,"z":2.675}],"fold_15":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":6.653,"y":-6.646,"z":4.534},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":6.936,"y":-13.234,"z":3.262},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":0.782,"y":-6.211,"z":-1.373},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":0.047,"y":-12.779,"z":0.024},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":0.433,"y":-15.33,"z":4.496},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":0.055,"y":-11.558,"z":4.951},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.314,"y":-13.652,"z":8.632},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-2.688,"y":-7.914,"z":8.153}],"fold_16":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-3.315,"y":-7.106,"z":-6.904},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-9.533,"y":-6.335,"z":-9.344},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-4.051,"y":0.375,"z":-3.698},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-10.716,"y":-0.909,"z":-4.177},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-13.329,"y":-5.207,"z":-3.804},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-9.842,"y":-5.462,"z":-2.249},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-12.25,"y":-8.494,"z":-0.426},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-7.275,"y":-7.336,"z":2.209}],"fold_17":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":3.666,"y":-1.65,"z":9.673},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":2.06,"y":-7.091,"z":13.19},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":0.897,"y":-5.656,"z":2.833},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-2.56,"y":-9.259,"z":7.424},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-4.767,"y":-7.812,"z":11.802},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-3.826,"y":-4.886,"z":9.554},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-7.013,"y":-3.903,"z":12.411},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-6.086,"y":0.047,"z":7.661}],"fold_18":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":2.922,"y":-6.735,"z":-5.876},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-0.826,"y":-9.047,"z":-10.991},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-2.615,"y":-0.704,"z":-5.211},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-6.76,"y":-5.152,"z":-8.286},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-7.734,"y":-10.067,"z":-7.419},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-5.099,"y":-8.694,"z":-5.05},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-6.312,"y":-12.834,"z":-3.85},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-4.499,"y":-9.117,"z":0.224}],"fold_19":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":2.425,"y":10.444,"z":-1.15},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":2.422,"y":13.66,"z":4.738},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":2.572,"y":3.368,"z":3.115},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-0.028,"y":7.144,"z":8.111},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-3.93,"y":10.754,"z":8.113},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-3.368,"y":9.121,"z":4.724},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-7.071,"y":11.821,"z":4.85},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-6.795,"y":7.037,"z":0.712}],"fold_20":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":1.554,"y":8.121,"z":6.348},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-4.001,"y":9.653,"z":9.784},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-2.256,"y":1.067,"z":4.193},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-7.928,"y":4.568,"z":5.606},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-9.558,"y":9.182,"z":4.149},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-6.123,"y":8.301,"z":2.764},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-7.688,"y":11.763,"z":1.023},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-3.697,"y":8.875,"z":-2.156}],"fold_21":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-1.908,"y":-5.869,"z":-8.596},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-3.69,"y":-12.314,"z":-7.74},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-3.07,"y":-4.906,"z":-0.441},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-2.057,"y":-11.596,"z":-0.265},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":1.903,"y":-14.73,"z":-2.524},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":2.039,"y":-10.984,"z":-3.292},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":5.591,"y":-13.411,"z":-4.965},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":6.553,"y":-7.525,"z":-3.404}],"fold_22":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-10.208,"y":-3.584,"z":3.437},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-11.955,"y":-9.839,"z":1.844},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-3.837,"y":-4.423,"z":-1.928},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-7.861,"y":-9.226,"z":-4.561},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-13.044,"y":-9.233,"z":-5.565},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-11.707,"y":-5.901,"z":-4.27},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-15.591,"y":-5.784,"z":-6.491},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-12.482,"y":-0.496,"z":-5.878}],"fold_23":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":2.073,"y":8.825,"z":-5.425},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":1.365,"y":8.565,"z":-12.135},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":0.187,"y":0.682,"z":-5.375},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":2.274,"y":1.009,"z":-11.809},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":5.792,"y":3.682,"z":-13.899},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":6.31,"y":3.55,"z":-10.13},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":10.218,"y":4.518,"z":-11.855},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":10.139,"y":2.849,"z":-6.208}],"fold_24":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-0.461,"y":7.856,"z":-7.971},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-2.215,"y":14.095,"z":-6.183},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-0.229,"y":6.046,"z":0.014},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-4.42,"y":11.344,"z":0.547},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-8.034,"y":13.152,"z":-2.518},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-7.049,"y":9.538,"z":-3.318},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-10.918,"y":10.18,"z":-4.975},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-9.271,"y":4.64,"z":-4.546}],"fold_25":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":5.288,"y":8.273,"z":5.163},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":11.471,"y":9.375,"z":2.74},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":4.31,"y":2.566,"z":-0.775},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":11.138,"y":2.529,"z":-0.688},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":14.598,"y":2.496,"z":3.424},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":10.894,"y":2.257,"z":4.401},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":13.671,"y":1.166,"z":8.134},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":8.104,"y":-0.902,"z":8.161}],"fold_26":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-4.215,"y":2.489,"z":-8.961},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-10.44,"y":4.274,"z":-7.185},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-1.937,"y":3.032,"z":-1.041},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-8.554,"y":2.383,"z":0.076},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-12.12,"y":-0.335,"z":-2.256},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-8.616,"y":-1.384,"z":-3.414},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-11.21,"y":-4.853,"z":-4.208},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-5.616,"y":-6.025,"z":-4.076}],"fold_27":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-6.069,"y":7.187,"z":-0.652},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-3.401,"y":13.223,"z":-1.834},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":1.554,"y":4.214,"z":-0.197},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":3.09,"y":10.695,"z":1.228},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":0.461,"y":14.303,"z":3.655},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-0.801,"y":10.767,"z":4.463},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.78,"y":13.387,"z":7.846},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-2.401,"y":7.23,"z":8.953}],"fold_28":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":7.827,"y":1.376,"z":7.685},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":6.301,"y":2.933,"z":14.052},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-0.127,"y":0.145,"z":6.434},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-0.831,"y":4.271,"z":11.774},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":2.019,"y":8.282,"z":13.191},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":2.614,"y":7.241,"z":9.554},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":3.85,"y":11.413,"z":10.167},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":3.054,"y":9.644,"z":4.676}],"fold_29":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":5.857,"y":10.928,"z":2.941},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":5.156,"y":12.802,"z":9.384},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":1.771,"y":3.932,"z":4.999},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-0.479,"y":7.749,"z":10.088},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-2.329,"y":12.743,"z":10.208},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.49,"y":11.44,"z":6.712},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-3.923,"y":15.458,"z":6.666},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-4.038,"y":11.713,"z":1.709}],"fold_30":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":1.322,"y":0.551,"z":9.029},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-1.337,"y":-4.378,"z":12.709},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-2.301,"y":-2.972,"z":2.413},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-6.354,"y":-5.633,"z":7.155},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-7.943,"y":-3.827,"z":11.566},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-6.653,"y":-1.065,"z":9.254},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-9.392,"y":0.916,"z":12.041},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-7.853,"y":3.962,"z":7.451}],"fold_31":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":10.209,"y":-3.022,"z":3.533},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":13.482,"y":0.411,"z":8.302},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":3.843,"y":2.149,"z":4.778},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":8.64,"y":6.26,"z":7.213},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":13.596,"y":7.126,"z":5.558},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":11.507,"y":5.043,"z":3.136},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":15.27,"y":6.709,"z":1.191},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":10.673,"y":4.976,"z":-2.477}],"fold_32":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-4.991,"y":9.496,"z":3.269},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-7.403,"y":9.886,"z":9.496},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-1.282,"y":2.327,"z":5.598},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-6.17,"y":2.418,"z":10.345},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-11.208,"y":3.715,"z":10.023},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-9.427,"y":3.569,"z":6.652},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-13.967,"y":3.199,"z":6.485},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-10.686,"y":1.377,"z":1.546}],"fold_33":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":4.894,"y":-4.109,"z":-7.81},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":3.152,"y":-1.848,"z":-13.916},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":0.003,"y":1.991,"z":-4.691},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-2.906,"y":1.633,"z":-10.824},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-3.462,"y":-2.212,"z":-13.869},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-3.021,"y":-3.378,"z":-10.257},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-5.209,"y":-6.605,"z":-12.212},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-4.675,"y":-6.989,"z":-6.336}],"fold_34":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":8.586,"y":6.642,"z":-0.695},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":14.194,"y":5.217,"z":2.732},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":5.277,"y":-0.034,"z":2.709},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":10.009,"y":0.978,"z":7.451},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":12.262,"y":5.199,"z":9.065},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":8.872,"y":5.856,"z":7.439},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":9.546,"y":9.109,"z":10.062},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":4.151,"y":8.644,"z":8.005}],"fold_35":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":2.321,"y":-8.619,"z":-6.61},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":6.853,"y":-6.639,"z":-11.155},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":3.488,"y":-1.358,"z":-2.834},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":5.626,"y":0.562,"z":-9.034},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":3.469,"y":-0.568,"z":-13.903},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":1.437,"y":-1.786,"z":-10.917},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.049,"y":-1.844,"z":-15.019},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-4.101,"y":-1.633,"z":-9.829}],"fold_36":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":2.464,"y":-5.782,"z":-8.196},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-1.771,"y":-10.039,"z":-11.219},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-3.996,"y":-2.345,"z":-4.301},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-6.966,"y":-8.187,"z":-5.812},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-5.214,"y":-13.13,"z":-5.682},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-2.642,"y":-10.649,"z":-4.278},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.583,"y":-14.696,"z":-2.806},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":0.43,"y":-10.336,"z":0.331}],"fold_37":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":6.093,"y":-2.92,"z":-9.637},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":4.825,"y":0.959,"z":-14.956},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":2.068,"y":2.533,"z":-5.085},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-0.846,"y":4.135,"z":-11.018},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-2.189,"y":1.251,"z":-15.07},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.504,"y":-0.825,"z":-11.918},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-4.197,"y":-2.984,"z":-14.586},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-3.917,"y":-5.172,"z":-8.724}],"fold_38":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":1.254,"y":8.184,"z":-3.979},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-3.944,"y":10.271,"z":-7.66},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-3.658,"y":2.424,"z":-0.913},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-7.168,"y":3.416,"z":-6.622},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-5.535,"y":4.574,"z":-11.233},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-2.74,"y":3.242,"z":-8.993},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.739,"y":2.655,"z":-13.147},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":1.352,"y":-0.291,"z":-9.305}],"fold_39":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":5.048,"y":9.114,"z":5.223},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":1.447,"y":11.04,"z":10.595},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":0.137,"y":2.359,"z":4.907},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-4.084,"y":6.318,"z":8.367},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-5.462,"y":11.421,"z":7.71},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-3.141,"y":10.047,"z":5.005},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-4.88,"y":14.312,"z":3.965},{"resi":298,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-2.913,"y":10.474,"z":-0.628}],"fold_40":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-8.127,"y":-3.38,"z":6.616},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-5.805,"y":-6.787,"z":11.913},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-0.192,"y":-2.409,"z":4.27},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":0.702,"y":-7.877,"z":8.2},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-2.38,"y":-11.826,"z":9.189},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-3.358,"y":-9.948,"z":5.995},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-5.143,"y":-13.988,"z":5.699},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-4.992,"y":-10.736,"z":0.839}],"fold_41":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-4.883,"y":-2.333,"z":7.034},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-7.942,"y":2.746,"z":10.1},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-2.082,"y":3.168,"z":1.551},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-3.207,"y":7.636,"z":6.52},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-2.502,"y":7.26,"z":11.592},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.007,"y":4.249,"z":9.785},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":0.497,"y":4.352,"z":14.136},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":3.991,"y":1.456,"z":9.716}],"fold_42":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-7.634,"y":-8.614,"z":-2.902},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-14.066,"y":-6.557,"z":-2.884},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-5.588,"y":-0.864,"z":-0.621},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-12.082,"y":-0.62,"z":1.518},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-14.921,"y":-4.158,"z":3.645},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-11.265,"y":-5.262,"z":3.569},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-13.533,"y":-7.739,"z":6.566},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-7.232,"y":-7.605,"z":7.023}],"fold_43":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-6.087,"y":-8.708,"z":6.303},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-10.842,"y":-12.301,"z":3.258},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-3.59,"y":-6.017,"z":-1.095},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-9.75,"y":-7.842,"z":-2.933},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-14.34,"y":-7.594,"z":-0.471},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-11.603,"y":-5.521,"z":1.21},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-15.695,"y":-4.136,"z":2.511},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-10.854,"y":-0.25,"z":3.521}],"fold_44":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":8.294,"y":2.632,"z":-6.523},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":12.049,"y":-2.502,"z":-8.747},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":4.151,"y":-2.941,"z":-1.91},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":9.796,"y":-6.592,"z":-2.594},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":14.815,"y":-5.301,"z":-2.565},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":12.511,"y":-2.408,"z":-1.568},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":16.853,"y":-1.453,"z":-0.672},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":12.342,"y":1.597,"z":2.49}],"fold_45":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-10.241,"y":-4.184,"z":3.057},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-10.324,"y":-9.363,"z":7.313},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-2.036,"y":-3.661,"z":4.521},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-2.807,"y":-10.129,"z":6.3},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-5.932,"y":-13.813,"z":4.292},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-5.447,"y":-10.777,"z":2.066},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-6.561,"y":-14.394,"z":-0.219},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-4.705,"y":-9.675,"z":-3.289}],"fold_46":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":5.597,"y":7.256,"z":-0.355},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":4.059,"y":13.304,"z":2.177},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-1.101,"y":4.46,"z":3.362},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-3.078,"y":10.954,"z":3.036},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-2.329,"y":14.607,"z":-0.421},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-1.587,"y":11.074,"z":-1.704},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-2.306,"y":13.601,"z":-5.045},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-2.554,"y":7.938,"z":-6.148}],"fold_47":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-3.885,"y":4.455,"z":-8.828},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-8.546,"y":9.131,"z":-7.824},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-2.931,"y":4.138,"z":-0.502},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-9.209,"y":6.752,"z":-0.549},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-13.272,"y":5.791,"z":-3.552},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-10.423,"y":3.281,"z":-4.016},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-14.222,"y":1.785,"z":-5.475},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":-9.742,"y":-2.398,"z":-4.403}],"fold_48":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":4.117,"y":9.759,"z":-3.762},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":0.513,"y":13.239,"z":-8.246},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-2.4,"y":4.859,"z":-3.039},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-3.926,"y":7.192,"z":-9.258},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-1.132,"y":8.155,"z":-13.228},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":0.889,"y":6.403,"z":-10.518},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":3.039,"y":6.235,"z":-14.221},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":4.32,"y":2.247,"z":-10.275}],"fold_49":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":4.279,"y":-5.969,"z":-7.535},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":2.523,"y":-12.451,"z":-7.164},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":0.473,"y":-4.982,"z":-0.212},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":1.516,"y":-11.634,"z":0.403},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":5.731,"y":-14.644,"z":-0.601},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":6.333,"y":-10.927,"z":-1.187},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":10.244,"y":-13.483,"z":-1.571},{"resi":298,"resname":"TRP","chain":"A","color":"#ff7f0e","x":10.554,"y":-7.362,"z":0.077}],"fold_50":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":-7.756,"y":-1.736,"z":5.338},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":-8.644,"y":-8.394,"z":5.56},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":-0.428,"y":-3.239,"z":1.707},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":-3.323,"y":-9.189,"z":0.095},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":-7.925,"y":-10.446,"z":-1.331},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":-7.29,"y":-6.67,"z":-1.528},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":-10.932,"y":-7.451,"z":-3.934},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":-8.339,"y":-2.149,"z":-4.673}],"fsl_peptidase":[{"resi":138,"resname":"GLU","chain":"A","color":"#d62728","x":8.357,"y":-5.759,"z":2.318},{"resi":140,"resname":"PHE","chain":"A","color":"#ff7f0e","x":12.656,"y":-6.814,"z":-2.874},{"resi":219,"resname":"GLN","chain":"A","color":"#2ca02c","x":4.213,"y":-1.058,"z":-2.825},{"resi":221,"resname":"ASN","chain":"A","color":"#2ca02c","x":7.224,"y":-4.595,"z":-7.358},{"resi":257,"resname":"GLY","chain":"A","color":"#ff7f0e","x":8.997,"y":-9.634,"z":-7.524},{"resi":258,"resname":"SER","chain":"A","color":"#2ca02c","x":6.383,"y":-8.834,"z":-4.857},{"resi":296,"resname":"SER","chain":"A","color":"#2ca02c","x":6.275,"y":-13.002,"z":-5.853},{"resi":298,"resname":"ASP","chain":"A","color":"#d62728","x":1.771,"y":-11.125,"z":-2.674}]};
+
+// ============= TABS =============
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ============= Top 10 Table =============
+(function() {
+  const tbody = document.getElementById('top10-tbody');
+  const top10 = [["排名", "Fold", "BR (Å)", "L (Å)", "Cluster", "Priority", "评分", "推荐等级"], ["1.000", "fold_36", "1.254", "5.553", "12.000", "0.827", "8.000", "★★★"], ["2.000", "fold_46", "1.274", "4.906", "8.000", "0.835", "8.000", "★★★"], ["3.000", "fold_26", "1.235", "4.851", "13.000", "0.837", "8.000", "★★★"], ["4.000", "fold_04", "1.270", "4.852", "8.000", "0.835", "8.000", "★★★"], ["5.000", "fold_38", "1.332", "4.613", "12.000", "0.852", "7.500", "★★"], ["6.000", "fold_16", "1.314", "4.233", "6.000", "0.859", "7.500", "★★"], ["7.000", "fold_06", "1.302", "4.194", "7.000", "0.861", "7.500", "★★"], ["8.000", "fold_18", "1.183", "4.122", "14.000", "0.857", "7.500", "★★"], ["9.000", "fold_20", "1.141", "5.406", "1.000", "0.846", "7.000", "★★"], ["10.000", "fold_34", "1.239", "5.391", "2.000", "0.827", "7.000", "★★"]];
+  const header = top10[0];
+  for (let i = 1; i < top10.length; i++) {
+    const row = top10[i];
+    const tr = document.createElement('tr');
+    if (i <= 4) tr.className = 'top4';
+    tr.innerHTML = `
+      <td>${row[0]}</td>
+      <td><b>${row[1]}</b></td>
+      <td>${row[2]}</td>
+      <td>${row[3]}</td>
+      <td>${row[4]}</td>
+      <td>${row[5]}</td>
+      <td><b style="color:#2ca02c">${row[6]}</b></td>
+      <td class="star">${row[7]}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+})();
+
+// ============= 298 Type Table =============
+(function() {
+  const tbody = document.getElementById('resi298-tbody');
+  const t = [["298 类型", "数量", "BR 范围 (Å)", "L 范围 (Å)", "N_Cl 范围", "Priority 范围"], ["ASP (与原酶一致)", "23.000", "1.14-1.43", "3.90-5.55", "1-26", "0.83-0.86"], ["TRP", "18.000", "1.17-1.38", "4.14-9.49", "2-22", "0.61-0.86"], ["PHE", "9.000", "1.17-1.34", "5.04-9.74", "2-18", "0.70-0.85"]];
+  for (let i = 1; i < t.length; i++) {
+    const row = t[i];
+    const tr = document.createElement('tr');
+    const color = row[0].includes('ASP') ? '#2ca02c' : '#d62728';
+    tr.innerHTML = `
+      <td><b style="color:${color}">${row[0]}</b></td>
+      <td>${row[1]}</td>
+      <td>${row[2]}</td>
+      <td>${row[3]}</td>
+      <td>${row[4]}</td>
+      <td>${row[5]}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+})();
+
+// ============= 50 Cards =============
+const TOP4 = new Set(['fold_36', 'fold_46', 'fold_26', 'fold_04']);
+let currentEntries = [...ENTRIES];
+
+function renderCards(entries) {
+  const container = document.getElementById('cards-container');
+  container.innerHTML = '';
+  entries.forEach(e => {
+    const isRef = e.type === 'reference';
+    const isTop4 = TOP4.has(e.name);
+    const totalLining = e.positive_n + e.negative_n + e.polar_n + e.hydrophobic_n;
+    const liningBar = totalLining > 0 ? `
+      <div class="lining-bar">
+        <div class="lining-pos" style="width:${(e.positive_n/totalLining*100).toFixed(1)}%"></div>
+        <div class="lining-neg" style="width:${(e.negative_n/totalLining*100).toFixed(1)}%"></div>
+        <div class="lining-pol" style="width:${(e.polar_n/totalLining*100).toFixed(1)}%"></div>
+        <div class="lining-hyd" style="width:${(e.hydrophobic_n/totalLining*100).toFixed(1)}%"></div>
+      </div>
+      <div class="lining-legend">
+        <div class="item"><span class="swatch lining-pos"></span>正电 ${e.positive_n}</div>
+        <div class="item"><span class="swatch lining-neg"></span>负电 ${e.negative_n}</div>
+        <div class="item"><span class="swatch lining-pol"></span>极性 ${e.polar_n}</div>
+        <div class="item"><span class="swatch lining-hyd"></span>疏水 ${e.hydrophobic_n}</div>
+      </div>
+    ` : '';
+    const card = document.createElement('div');
+    card.className = 'protein-card' + (isRef ? ' reference' : '') + (isTop4 ? ' top4' : '');
+    card.innerHTML = `
+      <div class="protein-img">
+        <img src="${e.image}" alt="${e.name} 3D" loading="lazy"
+          onerror="this.parentElement.innerHTML='<div style=&quot;color:#999;font-size:11px&quot;>图片加载失败</div>'">
+      </div>
+      <div class="protein-info">
+        <div class="protein-name">
+          ${e.name}
+          ${isRef ? '<span class="badge reference">参照</span>' : ''}
+          ${isTop4 ? '<span class="badge top4">Top 4</span>' : ''}
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="label">Cluster</div><div class="value">${e.n_clusters}</div></div>
+          <div class="metric"><div class="label">总球数</div><div class="value">${e.total_spheres}</div></div>
+          <div class="metric"><div class="label">体积</div><div class="value">${e.volume.toFixed(0)}<span class="unit"> ų</span></div></div>
+          <div class="metric"><div class="label">衬里总数</div><div class="value">${totalLining}</div></div>
+        </div>
+        ${liningBar}
+        <div class="action-row">
+          <button class="btn btn-view3d" onclick="event.stopPropagation();loadViewer3D('${e.name}')">🔬 3D 查看</button>
+          <button class="btn btn-pdb" onclick="event.stopPropagation();window.open('web_pdbs/${e.name}.pdb','_blank')">📁 PDB</button>
+        </div>
+      </div>
+    `;
+    card.addEventListener('click', () => {
+      loadViewer3D(e.name);
+    });
+    container.appendChild(card);
+  });
+}
+renderCards(currentEntries);
+
+// 过滤
+function applyFilters() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const type = document.getElementById('filter-type').value;
+  const vMin = parseFloat(document.getElementById('filter-vol-min').value) || -Infinity;
+  const vMax = parseFloat(document.getElementById('filter-vol-max').value) || Infinity;
+  const sortBy = document.getElementById('sort-by').value;
+  let filtered = ENTRIES.filter(e => {
+    if (search && !e.name.toLowerCase().includes(search)) return false;
+    if (type === 'reference' && e.type !== 'reference') return false;
+    if (type === 'design' && e.type !== 'design') return false;
+    if (type === 'top4' && !TOP4.has(e.name)) return false;
+    if (e.volume < vMin || e.volume > vMax) return false;
+    return true;
+  });
+  if (sortBy === 'vol-desc') filtered.sort((a, b) => b.volume - a.volume);
+  else if (sortBy === 'vol-asc') filtered.sort((a, b) => a.volume - b.volume);
+  else if (sortBy === 'clusters-desc') filtered.sort((a, b) => b.n_clusters - a.n_clusters);
+  else filtered.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+  renderCards(filtered);
+}
+['search', 'filter-type', 'filter-vol-min', 'filter-vol-max', 'sort-by'].forEach(id => {
+  document.getElementById(id).addEventListener('input', applyFilters);
+  document.getElementById(id).addEventListener('change', applyFilters);
+});
+
+// ============= 3Dmol.js Viewer =============
+let viewer = null;
+let spinInterval = null;
+let currentProtein = null;
+let tunnelClusters = [];  // 当前蛋白的 tunnel cluster 列表
+
+const CLUSTER_COLORS = [
+  '#9b59b6', '#3498db', '#e74c3c', '#2ecc71', '#f39c12',
+  '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b',
+  '#8e44ad', '#d35400', '#7f8c8d', '#27ae60', '#2980b9',
+  '#f1c40f', '#e84393', '#00b894', '#fdcb6e', '#6c5ce7',
+  '#fab1a0', '#74b9ff', '#a29bfe', '#fd79a8', '#ffeaa7',
+  '#55efc4', '#81ecec',
+];
+
+function showLoading(show) {
+  document.getElementById('viewer-loading').style.display = show ? 'block' : 'none';
+}
+
+async function loadViewer3D(name) {
+  if (name) {
+    document.getElementById('viewer-protein').value = name;
+    // 切到 viewer tab
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector('[data-tab="viewer"]').classList.add('active');
+    document.getElementById('tab-viewer').classList.add('active');
+  }
+  name = document.getElementById('viewer-protein').value;
+  if (name === currentProtein && viewer) return;
+  currentProtein = name;
+
+  showLoading(true);
+
+  if (!viewer) {
+    viewer = $3Dmol.createViewer('viewer3d', {
+      backgroundColor: '#1a202c',
+    });
+  } else {
+    viewer.removeAllShapes();
+    viewer.removeAllLabels();
+    viewer.removeAllModels();
+  }
+  if (spinInterval) { clearInterval(spinInterval); spinInterval = null; }
+  document.getElementById('opt-spin').checked = false;
+
+  // 1. 加载 PDB
+  try {
+    const pdbResp = await fetch('web_pdbs/' + name + '.pdb');
+    const pdbData = await pdbResp.text();
+    viewer.addModel(pdbData, 'pdb');
+
+    // 卡通
+    if (document.getElementById('opt-cartoon').checked) {
+      viewer.setStyle({}, {cartoon: {color: '#cccccc', opacity: 0.85}});
+    } else {
+      viewer.setStyle({}, {});
+    }
+
+    // 分子表面
+    if (document.getElementById('opt-surface').checked) {
+      viewer.addSurface($3Dmol.SurfaceType.MS, {opacity: 0.3, color: '#88aaff'});
+    }
+
+    // 2. 8 个活性位点
+    if (document.getElementById('opt-sites').checked && SITES[name]) {
+      SITES[name].forEach(s => {
+        viewer.addSphere({
+          center: {x: s.x, y: s.y, z: s.z},
+          radius: 1.2,
+          color: s.color,
+          alpha: 0.9,
+        });
+        viewer.addLabel(s.resi + ':' + s.resname, {
+          position: {x: s.x, y: s.y, z: s.z},
+          backgroundColor: s.color,
+          fontColor: 'white',
+          fontSize: 11,
+          showBackground: true,
+          inFront: true,
+        });
+      });
+    }
+
+    // 3. Tunnel 球链
+    if (document.getElementById('opt-tunnels').checked) {
+      try {
+        const tResp = await fetch('web_tunnels/' + name + '_tunnels.json');
+        const tData = await tResp.json();
+        tunnelClusters = tData.clusters || [];
+        tunnelClusters.forEach((cl, ci) => {
+          const color = CLUSTER_COLORS[ci % CLUSTER_COLORS.length];
+          cl.spheres.forEach((s, si) => {
+            viewer.addSphere({
+              center: {x: s[0], y: s[1], z: s[2]},
+              radius: s[3] * 0.7,  // CAVER 半径稍大,缩小
+              color: color,
+              alpha: 0.35,
+            });
+          });
+        });
+      } catch (e) {
+        console.warn('Tunnel load failed:', e);
+      }
+    }
+
+    viewer.zoomTo();
+    viewer.render();
+
+    // 信息卡片
+    document.getElementById('info-name').textContent = name;
+    const entry = ENTRIES.find(e => e.name === name);
+    if (entry) {
+      document.getElementById('info-clusters').textContent = entry.n_clusters;
+      document.getElementById('info-spheres').textContent = entry.total_spheres;
+    }
+
+  } catch (e) {
+    console.error('Load error:', e);
+    alert('加载失败: ' + e.message);
+  }
+  showLoading(false);
+}
+
+function toggleSpin() {
+  if (!viewer) return;
+  const on = document.getElementById('opt-spin').checked;
+  if (on) {
+    spinInterval = setInterval(() => {
+      viewer.rotate(1, 'y');
+    }, 50);
+  } else {
+    if (spinInterval) { clearInterval(spinInterval); spinInterval = null; }
+  }
+}
+
+document.getElementById('btn-load').addEventListener('click', () => {
+  currentProtein = null;
+  loadViewer3D();
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (viewer) { viewer.zoomTo(); viewer.render(); }
+});
+['opt-cartoon', 'opt-surface', 'opt-sites', 'opt-tunnels'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    currentProtein = null;
+    loadViewer3D();
+  });
+});
+document.getElementById('opt-spin').addEventListener('change', toggleSpin);
+document.getElementById('viewer-protein').addEventListener('change', () => {
+  currentProtein = null;
+  loadViewer3D();
+});
+
+// 默认加载 fold_36
+setTimeout(() => loadViewer3D('fold_36'), 500);
+</script>
+
+</body>
+</html>
